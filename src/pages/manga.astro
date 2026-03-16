@@ -1,0 +1,566 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+
+// Database & Cloudflare Workers access
+let db: any = null;
+try {
+  // @ts-ignore
+  const { env } = await import('cloudflare:workers');
+  db = env?.DB;
+} catch (e) {
+  // @ts-ignore
+  db = Astro.locals.runtime?.env?.DB;
+}
+
+let mangaList = [];
+if (db) {
+  try {
+    const { results } = await db.prepare('SELECT * FROM manga ORDER BY created_at DESC').all();
+    mangaList = results || [];
+  } catch (e) {
+    console.error('D1 Fetch Error:', e);
+  }
+}
+
+// Fallback for initial UI test
+if (mangaList.length === 0) {
+  mangaList = [
+    { id: 1, nhentai_id: 'sample1', title: 'Metamorphosis', cover_url: 'https://wsrv.nl/?url=https://i.nhentai.net/galleries/943393/1.webp&w=300&output=webp', source_url: 'https://nhentai.net/g/177013/', favorite_status: 1 },
+    { id: 2, nhentai_id: 'sample2', title: 'Private Collection', cover_url: 'https://wsrv.nl/?url=https://i.nhentai.net/galleries/3105436/1.webp&w=300&output=webp', source_url: 'https://nhentai.net/g/637496/', favorite_status: 0 }
+  ];
+}
+---
+
+<Layout title="VaultHUB | Manga Library">
+  <Header />
+
+  <main class="manga-container">
+    <div class="manga-header">
+      <div class="header-left">
+        <h1>Manga <span class="accent">Library</span></h1>
+        <p class="stats" id="statsCount">{mangaList.length} Items Collected</p>
+      </div>
+      
+      <div class="header-right">
+        <div class="control-box">
+          <div class="search-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="mangaSearch" placeholder="Search library..." />
+          </div>
+          <select id="mangaSort" class="premium-select">
+            <option value="recent">Recent</option>
+            <option value="az">A-Z</option>
+            <option value="za">Z-A</option>
+            <option value="fav">Favorites</option>
+          </select>
+        </div>
+        <button id="addMangaBtn" class="premium-add-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>Add</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="manga-grid" id="mangaGrid">
+      {mangaList.map((manga) => (
+        <div class="manga-card" data-id={manga.id} data-nhentai={manga.nhentai_id} data-title={manga.title.toLowerCase()} data-fav={manga.favorite_status} data-created={manga.created_at}>
+          <a href={manga.source_url} target="_blank" class="cover-link">
+            <div class="manga-cover">
+              <img src={manga.cover_url} alt={manga.title} loading="lazy" />
+              <div class="manga-overlay">
+                <span class="view-tag">View Source</span>
+              </div>
+              <div class="manga-badge">Vault</div>
+              {manga.favorite_status === 1 && <div class="fav-badge"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>}
+            </div>
+          </a>
+          <div class="manga-details">
+            <h3 class="manga-title">{manga.title}</h3>
+            <div class="manga-actions">
+              <button class="action-btn edit-trigger" title="Edit">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+              </button>
+              <button class="action-btn delete-trigger" title="Delete">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+              </button>
+              <button class="action-btn fav-trigger" title="Toggle Favorite">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill={manga.favorite_status === 1 ? "var(--accent-color)" : "none"} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </main>
+
+  <!-- Unified Modal for Add/Edit -->
+  <div id="mangaModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="modalTitleText">New Collection Entry</h2>
+        <button id="closeModal" class="close-x">&times;</button>
+      </div>
+      
+      <div class="modal-body">
+        <input type="hidden" id="editId" />
+        <div class="form-group">
+          <label>Project Title</label>
+          <input type="text" id="inputTitle" placeholder="e.g. Special Collection #1" />
+        </div>
+        
+        <div class="form-group">
+          <label>Source Link (External)</label>
+          <input type="text" id="inputLink" placeholder="https://..." />
+        </div>
+
+        <div class="form-group" id="coverGroup">
+          <label>Gallery Cover</label>
+          <div class="cover-options">
+            <input type="text" id="inputCoverUrl" placeholder="Image URL..." />
+            <span class="or-divider">OR</span>
+            <button type="button" id="fileTrigger" class="file-btn">
+               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+               Upload File
+            </button>
+            <input type="file" id="inputFile" accept="image/*" class="hidden-file" />
+          </div>
+          <div id="fileStatus" class="file-status"></div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="saveManga" class="confirm-btn">Save to Vault</button>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  :root {
+    --accent-color: #9d4edd;
+    --accent-glow: rgba(157, 78, 221, 0.4);
+    --bg-dark: #0a0a0a;
+    --card-bg: #111111;
+    --border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .manga-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 100px 20px 40px;
+  }
+
+  .manga-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+
+  .header-left h1 {
+    font-size: 2.2rem;
+    margin: 0;
+    font-weight: 800;
+  }
+
+  .accent {
+    color: var(--accent-color);
+    text-shadow: 0 0 15px var(--accent-glow);
+  }
+
+  .stats {
+    color: #888;
+    margin: 4px 0 0;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+
+  .control-box {
+    display: flex;
+    align-items: center;
+    background: #1a1a1a;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 4px;
+    gap: 4px;
+  }
+
+  .search-wrap {
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 8px;
+    color: #666;
+  }
+
+  .search-wrap input {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 0.9rem;
+    outline: none;
+    width: 150px;
+    padding: 8px 0;
+  }
+
+  .premium-select {
+    background: #222;
+    color: #eee;
+    border: 1px solid #333;
+    padding: 8px 12px;
+    border-radius: 6px;
+    outline: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+
+  .premium-add-btn {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 15px var(--accent-glow);
+  }
+
+  /* --- GRID --- */
+  .manga-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: flex-start;
+  }
+
+  .manga-card {
+    height: 260px;
+    width: fit-content;
+    min-width: 130px;
+    max-width: 280px;
+    background: var(--card-bg);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid var(--border-color);
+    position: relative;
+  }
+
+  .manga-card:hover {
+    transform: translateY(-6px);
+    border-color: var(--accent-color);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+  }
+
+  .cover-link { text-decoration: none; display: block; height: 190px; }
+
+  .manga-cover {
+    height: 100%;
+    position: relative;
+    background: #000;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+  }
+
+  .manga-cover img {
+    height: 100%;
+    width: auto;
+    object-fit: contain;
+    transition: transform 0.6s ease;
+  }
+
+  .manga-card:hover .manga-cover img {
+    transform: scale(1.08);
+  }
+
+  .manga-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .manga-card:hover .manga-overlay { opacity: 1; }
+
+  .view-tag {
+    background: white;
+    color: black;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .manga-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    color: #9d4edd;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 3px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+
+  .fav-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    color: var(--accent-color);
+    filter: drop-shadow(0 0 4px var(--accent-glow));
+  }
+
+  .manga-details {
+    padding: 8px 12px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    background: #111;
+  }
+
+  .manga-title {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #ccc;
+    text-align: center;
+    font-weight: 600;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .manga-actions {
+    display: flex;
+    gap: 8px;
+    opacity: 0.4;
+    transition: opacity 0.2s;
+  }
+
+  .manga-card:hover .manga-actions { opacity: 1; }
+
+  .action-btn {
+    background: transparent;
+    border: none;
+    color: #666;
+    padding: 4px;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .action-btn:hover { color: var(--accent-color); background: rgba(157, 78, 221, 0.1); }
+  .action-btn.delete-trigger:hover { color: #ff4d4d; background: rgba(255, 77, 77, 0.1); }
+
+  /* MODAL EXTRAS */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: 0.3s; }
+  .modal-backdrop.active { opacity: 1; visibility: visible; }
+  .modal-box { background: #111; width: 90%; max-width: 480px; border-radius: 12px; border: 1px solid #333; transform: translateY(20px); transition: 0.3s; }
+  .modal-backdrop.active .modal-box { transform: translateY(0); }
+  .modal-header { padding: 20px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
+  .close-x { background: none; border: none; color: #666; font-size: 1.5rem; cursor: pointer; }
+  .modal-body { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+  .form-group label { font-size: 0.75rem; color: #666; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; }
+  .form-group input { background: #0a0a0a; border: 1px solid #222; padding: 12px; border-radius: 6px; color: white; outline: none; }
+  .form-group input:focus { border-color: var(--accent-color); }
+  .cover-options { display: flex; align-items: center; gap: 8px; }
+  .cover-options input { flex: 1; }
+  .or-divider { font-size: 10px; color: #444; font-weight: 900; }
+  .file-btn { background: #1a1a1a; border: 1px solid #222; color: #888; padding: 10px; border-radius: 6px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .hidden-file { display: none; }
+  .modal-footer { padding: 20px; }
+  .confirm-btn { width: 100%; background: var(--accent-color); border: none; padding: 14px; border-radius: 6px; color: white; font-weight: 700; cursor: pointer; }
+</style>
+
+<script>
+  // UI HANDLERS
+  const searchInput = document.getElementById('mangaSearch') as HTMLInputElement;
+  const sortSelect = document.getElementById('mangaSort') as HTMLSelectElement;
+  const grid = document.getElementById('mangaGrid');
+  const countDisplay = document.getElementById('statsCount');
+
+  function updateCount() {
+    const visibleCards = document.querySelectorAll('.manga-card:not([style*="display: none"])');
+    if (countDisplay) countDisplay.innerText = `${visibleCards.length} Items Listed`;
+  }
+
+  // SEARCH LOGIC
+  searchInput?.addEventListener('input', () => {
+    const query = searchInput.value.toLowerCase();
+    const cards = document.querySelectorAll('.manga-card');
+    cards.forEach(card => {
+      const title = (card as HTMLElement).dataset.title || '';
+      const nid = (card as HTMLElement).dataset.nhentai || '';
+      if (title.includes(query) || nid.includes(query)) {
+        (card as HTMLElement).style.display = 'flex';
+      } else {
+        (card as HTMLElement).style.display = 'none';
+      }
+    });
+    updateCount();
+  });
+
+  // SORT LOGIC
+  sortSelect?.addEventListener('change', () => {
+    const mode = sortSelect.value;
+    const cards = Array.from(document.querySelectorAll('.manga-card'));
+    
+    cards.sort((a, b) => {
+      const ha = a as HTMLElement;
+      const hb = b as HTMLElement;
+      if (mode === 'az') return ha.dataset.title!.localeCompare(hb.dataset.title!);
+      if (mode === 'za') return hb.dataset.title!.localeCompare(ha.dataset.title!);
+      if (mode === 'fav') return (hb.dataset.fav || '0') === (ha.dataset.fav || '0') ? 0 : (hb.dataset.fav === '1' ? 1 : -1);
+      return hb.dataset.created!.localeCompare(ha.dataset.created!);
+    });
+
+    cards.forEach(card => grid?.appendChild(card));
+  });
+
+  // MODAL LOGIC
+  const modal = document.getElementById('mangaModal');
+  const openAdd = document.getElementById('addMangaBtn');
+  const closeBtn = document.getElementById('closeModal');
+  const saveBtn = document.getElementById('saveManga');
+  const mTitleText = document.getElementById('modalTitleText');
+  const fileTrigger = document.getElementById('fileTrigger');
+  const fileInput = document.getElementById('inputFile') as HTMLInputElement;
+
+  const editId = document.getElementById('editId') as HTMLInputElement;
+  const inTitle = document.getElementById('inputTitle') as HTMLInputElement;
+  const inLink = document.getElementById('inputLink') as HTMLInputElement;
+  const inCover = document.getElementById('inputCoverUrl') as HTMLInputElement;
+  const coverGroup = document.getElementById('coverGroup');
+
+  openAdd?.addEventListener('click', () => {
+    editId.value = '';
+    inTitle.value = '';
+    inLink.value = '';
+    inCover.value = '';
+    mTitleText!.innerText = "New Collection Entry";
+    coverGroup!.style.display = 'flex';
+    modal?.classList.add('active');
+  });
+
+  closeBtn?.addEventListener('click', () => modal?.classList.remove('active'));
+
+  fileTrigger?.addEventListener('click', () => fileInput.click());
+
+  // ACTION DELEGATION
+  grid?.addEventListener('click', async (e) => {
+    const target = e.target as HTMLElement;
+    const card = target.closest('.manga-card') as HTMLElement;
+    if (!card) return;
+    const dbId = card.dataset.id;
+    const nhId = card.dataset.nhentai;
+
+    // FAVORITE
+    if (target.closest('.fav-trigger')) {
+      const isFav = card.dataset.fav === '1';
+      const res = await fetch('/api/manga-info', {
+        method: 'PATCH',
+        body: JSON.stringify({ id: dbId, favorite_status: isFav ? 0 : 1 })
+      });
+      if (res.ok) {
+        card.dataset.fav = isFav ? '0' : '1';
+        // Reload page or toggle icon color (simplified reload here for completeness)
+        window.location.reload();
+      }
+    }
+
+    // DELETE
+    if (target.closest('.delete-trigger')) {
+      if (!confirm("Remove this manga from your vault?")) return;
+      const res = await fetch('/api/manga-info', {
+        method: 'DELETE',
+        body: JSON.stringify({ id: dbId })
+      });
+      if (res.ok) {
+        card.remove();
+        updateCount();
+      }
+    }
+
+    // EDIT
+    if (target.closest('.edit-trigger')) {
+      editId.value = dbId || '';
+      inTitle.value = card.dataset.title || '';
+      inLink.value = (card.querySelector('.cover-link') as HTMLAnchorElement).href;
+      mTitleText!.innerText = "Edit Gallery Info";
+      coverGroup!.style.display = 'none'; // Only title/link edit for now to simplify
+      modal?.classList.add('active');
+    }
+  });
+
+  // SAVE ACTION
+  saveBtn?.addEventListener('click', async () => {
+    const id = editId.value;
+    const title = inTitle.value.trim();
+    const link = inLink.value.trim();
+    const cover = inCover.value.trim();
+    const file = fileInput.files?.[0];
+
+    saveBtn.innerText = "Processing...";
+    saveBtn.disabled = true;
+
+    try {
+      if (id) {
+        // EDIT MODE
+        const res = await fetch('/api/manga-info', {
+          method: 'PATCH',
+          body: JSON.stringify({ id, title, source_url: link })
+        });
+        if (res.ok) window.location.reload();
+      } else {
+        // NEW MODE
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('url', link);
+        formData.append('cover', cover);
+        if (file) formData.append('file', file);
+
+        const res = await fetch('/api/manga-info', { method: 'POST', body: formData });
+        if (res.ok) window.location.reload();
+      }
+    } catch (err) {
+      alert("Error saving entry.");
+    } finally {
+      saveBtn.innerText = "Save to Vault";
+      saveBtn.disabled = false;
+    }
+  });
+</script>

@@ -1,0 +1,78 @@
+---
+interface Props {
+  currentPage: number;
+  totalPages: number;
+}
+
+const { currentPage, totalPages } = Astro.props;
+---
+
+<div class="pagination">
+  <a href={currentPage > 1 ? `?page=${currentPage - 1}` : '#'} class:list={["pag-btn", { disabled: currentPage === 1 }]}>
+    Prev
+  </a>
+  
+  <div class="pages">
+    {Array.from({ length: totalPages }).map((_, i) => (
+      <a 
+        href={`?page=${i + 1}`} 
+        class:list={["page-num", { active: currentPage === i + 1 }]}
+      >
+        {i + 1}
+      </a>
+    ))}
+  </div>
+
+  <a href={currentPage < totalPages ? `?page=${currentPage + 1}` : '#'} class:list={["pag-btn", { disabled: currentPage === totalPages }]}>
+    Next
+  </a>
+</div>
+
+<style>
+  .pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin-top: 40px;
+    padding: 20px 0;
+  }
+
+  .pages {
+    display: flex;
+    gap: 8px;
+  }
+
+  .pag-btn, .page-num {
+    padding: 8px 16px;
+    background: var(--secondary-bg);
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.2s;
+    border: 1px solid var(--border-color);
+  }
+
+  .page-num {
+    padding: 8px 12px;
+    min-width: 36px;
+    text-align: center;
+  }
+
+  .pag-btn:hover:not(.disabled), .page-num:hover:not(.active) {
+    background: var(--border-color);
+    border-color: var(--accent-color);
+  }
+
+  .page-num.active {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: white;
+  }
+
+  .disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+</style>

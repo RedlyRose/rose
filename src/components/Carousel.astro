@@ -1,0 +1,89 @@
+---
+interface Props {
+  items?: string[];
+}
+
+const { items = [
+  'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=1000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1614850523296-62c09b68a441?q=80&w=1000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=1000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=1000&auto=format&fit=crop'
+] } = Astro.props;
+---
+
+<section class="carousel-section">
+  <div class="carousel-track">
+    <div class="carousel-list">
+      {items.map((src) => (
+        <div class="carousel-item">
+          <img src={src} alt="Recent" loading="lazy" />
+        </div>
+      ))}
+      <!-- Duplicate for infinite effect -->
+      {items.map((src) => (
+        <div class="carousel-item">
+          <img src={src} alt="Recent" loading="lazy" />
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .carousel-section {
+    width: 100%;
+    margin-top: 20px;
+    margin-bottom: 40px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .carousel-track {
+    display: flex;
+    mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+  }
+
+  .carousel-list {
+    display: flex;
+    gap: 15px;
+    animation: scroll 40s linear infinite;
+    padding: 10px 0;
+  }
+
+  .carousel-item {
+    flex: 0 0 300px;
+    height: 180px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    transition: transform 0.3s, border-color 0.3s;
+    cursor: pointer;
+  }
+
+  .carousel-item:hover {
+    transform: scale(1.05);
+    border-color: var(--accent-color);
+    z-index: 10;
+  }
+
+  .carousel-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  @keyframes scroll {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(calc(-50% - 7.5px));
+    }
+  }
+
+  .carousel-list:hover {
+    animation-play-state: paused;
+  }
+</style>

@@ -1,0 +1,157 @@
+---
+interface Props {
+  videos: any[];
+}
+
+const { videos } = Astro.props;
+---
+
+<section class="container">
+  <div class="header-row">
+    <h2>Videos</h2>
+    <div class="filters">
+      <span>Sort by:</span>
+      <select>
+        <option>Recent</option>
+        <option>Most Viewed</option>
+        <option>Duration</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="video-grid">
+    {videos.map(video => (
+       <div class="video-card">
+        <a href="/video/test" class="thumb-container">
+          <img src={video.thumb} alt={video.title} loading="lazy" />
+          <span class="duration">{video.duration}</span>
+          <div class="hover-overlay">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          </div>
+        </a>
+        <div class="video-info">
+          <a href="/video/test" class="video-title">{video.title}</a>
+          <div class="video-meta">
+            <span>{video.views} views</span>
+            <span class="separator">•</span>
+            <span>{video.date}</span>
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+</section>
+
+<style>
+  .header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  .filters select {
+    background: var(--secondary-bg);
+    color: #fff;
+    border: 1px solid var(--border-color);
+    padding: 4px 8px;
+    border-radius: 4px;
+    outline: none;
+  }
+
+  .video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+  }
+
+  .video-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .thumb-container {
+    position: relative;
+    aspect-ratio: 16/9;
+    background-color: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+  }
+
+  .thumb-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s;
+  }
+
+  .video-card:hover img {
+    transform: scale(1.1);
+  }
+
+  .duration {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background-color: rgba(0,0,0,0.8);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    z-index: 2;
+  }
+
+  .hover-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(157, 78, 221, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 1;
+  }
+
+  .video-card:hover .hover-overlay {
+    opacity: 1;
+  }
+
+  .video-title {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    transition: color 0.2s;
+  }
+
+  .video-title:hover {
+    color: var(--accent-color);
+  }
+
+  .video-meta {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .separator {
+    margin: 0 5px;
+  }
+</style>

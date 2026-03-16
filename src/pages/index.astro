@@ -1,0 +1,106 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Carousel from '../components/Carousel.astro';
+import Galleries from '../components/Galleries.astro';
+import VideoGrid from '../components/VideoGrid.astro';
+import Pagination from '../components/Pagination.astro';
+import { getR2Content } from '../utils/r2';
+
+const runtime = Astro.locals.runtime;
+let r2Items = [];
+try {
+  r2Items = await getR2Content(runtime);
+} catch (e) {
+  console.error("R2 loading failed", e);
+}
+
+// Pagination Logic
+const url = new URL(Astro.request.url);
+const page = parseInt(url.searchParams.get('page') || '1');
+const limit = 8;
+
+// Map R2 items to video format
+const r2Videos = (r2Items || []).map((item, i) => ({
+  id: `r2-${i}`,
+  title: item.key.split('/').pop()?.split('.')[0] || item.key, // Use filename as title
+  duration: "HD",
+  views: "0",
+  date: "New",
+  thumb: item.key.toLowerCase().endsWith('.mp4') ? '/video-placeholder.jpg' : item.url,
+  url: item.url
+}));
+
+// Fallback Mock data
+const mockVideos = Array.from({ length: 20 }).map((_, i) => ({
+    id: i + 1,
+    title: `Private Video ${i + 1} - Secure Content`,
+    duration: `${Math.floor(Math.random() * 20) + 1}:45`,
+    views: `${(Math.random() * 10).toFixed(1)}K`,
+    date: `${i + 1} days ago`,
+    thumb: `https://images.unsplash.com/photo-${1536240478700 + i}?q=80&w=800&auto=format&fit=crop`
+}));
+
+// Combine them (R2 first)
+const allVideos = [...r2Videos, ...mockVideos];
+
+const totalPages = Math.ceil(allVideos.length / limit);
+const paginatedVideos = allVideos.slice((page - 1) * limit, page * limit);
+---
+
+<Layout title="VaultHUB | Your Private Collection">
+	<Header />
+	<main>
+		<Carousel />
+		<Galleries />
+		<VideoGrid videos={paginatedVideos} />
+    <Pagination currentPage={page} totalPages={totalPages} />
+	</main>
+	<footer>
+		<div class="container footer-content">
+			<p>&copy; 2026 VaultHUB Private. Modern. Secure.</p>
+			<div class="footer-links">
+				<a href="#">Privacy</a>
+				<a href="#">Terms</a>
+				<a href="#">Settings</a>
+			</div>
+		</div>
+	</footer>
+</Layout>
+
+<style>
+	main {
+		padding-bottom: 60px;
+	}
+
+	footer {
+		background-color: var(--header-bg);
+		border-top: 1px solid var(--border-color);
+		padding: 40px 0;
+		color: var(--text-muted);
+		font-size: 14px;
+	}
+
+	.footer-content {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.footer-links {
+		display: flex;
+		gap: 20px;
+	}
+
+	.footer-links a:hover {
+		color: var(--accent-color);
+	}
+
+	@media (max-width: 768px) {
+		.footer-content {
+			flex-direction: column;
+			gap: 20px;
+			text-align: center;
+		}
+	}
+</style>

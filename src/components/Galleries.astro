@@ -1,0 +1,170 @@
+---
+// Access R2 to find real galleries
+let bucket: any = null;
+try {
+  // @ts-ignore
+  const workers = await import('cloudflare:workers');
+  if (workers.env) bucket = workers.env.BUCKET;
+} catch (e) {
+  const runtime = Astro.locals.runtime;
+  if (runtime) {
+    try { bucket = runtime.env?.BUCKET || runtime.BUCKET; } catch(err) {}
+  }
+}
+
+let dynamicGalleries = [];
+if (bucket) {
+  try {
+    // List prefixes (folders)
+    const list = await bucket.list({ delimiter: '/' });
+    dynamicGalleries = (list.commonPrefixes || [])
+      .map((prefix: string) => {
+        const name = prefix.replace('/', '');
+        // Ignore system folders or manga covers
+        if (['api', 'manga-covers', 'covers', 'video'].includes(name.toLowerCase())) return null;
+        return {
+          name: name.charAt(0).toUpperCase() + name.slice(1),
+          count: 'Gallery',
+          color: name.toLowerCase() === 'maria' ? '#ff4d6d' : '#9d4edd'
+        };
+      })
+      .filter(Boolean);
+  } catch (err) {
+    console.error('R2 Prefix List Error:', err);
+  }
+}
+
+// Merge with fallbacks or just use dynamic
+const defaultGalleries = [
+  { name: 'Selfies', count: 124, color: '#9d4edd' },
+  { name: 'Vacation', count: 45, color: '#7b2cbf' },
+  { name: 'Party', count: 82, color: '#5a189a' },
+];
+
+const galleries = dynamicGalleries.length > 0 ? dynamicGalleries : [
+  { name: 'Maria', count: 'Active', color: '#ff4d6d' },
+  ...defaultGalleries
+];
+---
+
+<section class="container" id="galleries">
+  <div class="section-title-wrap">
+    <h2>Galleries</h2>
+    <p class="section-desc">Private visual collections stored in R2</p>
+  </div>
+  
+  <div class="circles-grid">
+    {galleries.map(gallery => (
+      <a href={`/gallery/${gallery.name.toLowerCase()}`} class="circle-item">
+        <div class="circle-wrapper" style={`background: linear-gradient(135deg, ${gallery.color}, #000);`}>
+          <span>{gallery.name[0]}</span>
+        </div>
+        <div class="circle-info">
+          <h3>{gallery.name}</h3>
+          <p>{gallery.count}</p>
+        </div>
+      </a>
+    ))}
+  </div>
+</section>
+
+<style>
+  .container {
+    max-width: 1400px;
+    margin: 40px auto;
+    padding: 0 20px;
+  }
+
+  .section-title-wrap {
+    margin-bottom: 25px;
+  }
+
+  .section-title-wrap h2 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin: 0;
+  }
+
+  .section-desc {
+    color: #666;
+    font-size: 0.9rem;
+    margin-top: 4px;
+  }
+
+  .circles-grid {
+    display: flex;
+    gap: 30px;
+    overflow-x: auto;
+    padding: 10px 5px 25px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-color) transparent;
+  }
+
+  .circle-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    min-width: 120px;
+    text-decoration: none;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .circle-item:hover {
+    transform: translateY(-10px);
+  }
+
+  .circle-wrapper {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid #222;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.6);
+    font-size: 36px;
+    font-weight: 800;
+    color: #fff;
+    transition: all 0.3s;
+    position: relative;
+  }
+
+  .circle-wrapper::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    transition: all 0.3s;
+  }
+
+  .circle-item:hover .circle-wrapper {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 25px rgba(157, 78, 221, 0.5);
+  }
+
+  .circle-item:hover .circle-wrapper::after {
+    border-color: rgba(157, 78, 221, 0.3);
+    inset: -10px;
+  }
+
+  .circle-info {
+    text-align: center;
+  }
+
+  .circle-info h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+  }
+
+  .circle-info p {
+    font-size: 11px;
+    color: #888;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+</style>

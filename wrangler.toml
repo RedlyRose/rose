@@ -1,0 +1,12 @@
+name = "vault-hub"
+compatibility_date = "2026-03-12"
+pages_build_output_dir = "dist"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "media"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "vaulthub-db"
+database_id = "a6e14d6a-932b-420b-9750-fe4b94ef8928"

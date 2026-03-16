@@ -1,0 +1,22 @@
+-- Schema for VaultHUB
+
+CREATE TABLE IF NOT EXISTS manga (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nhentai_id TEXT UNIQUE,
+  title TEXT NOT NULL,
+  source_url TEXT,
+  cover_url TEXT,
+  tags TEXT,
+  artist TEXT,
+  favorite_status INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS videos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  r2_key TEXT UNIQUE,
+  title TEXT NOT NULL,
+  duration TEXT,
+  views INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
