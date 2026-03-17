@@ -10,9 +10,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const tags = formData.get('tags') as string || '';
     const artist = formData.get('artist') as string || '';
 
-    const env = locals.runtime?.env;
-    const db = env?.DB;
-    const bucket = env?.BUCKET;
+    // Robust Binding Lookup
+    const runtime = (locals as any).runtime;
+    const db = runtime?.env?.DB || (locals as any).DB || (globalThis as any).DB;
+    const bucket = runtime?.env?.BUCKET || (locals as any).BUCKET || (globalThis as any).BUCKET;
 
     const nhentaiMatch = url.match(/\/g\/(\d+)/);
     const nhentaiId = nhentaiMatch ? nhentaiMatch[1] : null;
@@ -98,7 +99,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
 export const DELETE: APIRoute = async ({ request, locals }) => {
   try {
     const { id, nhentaiId } = await request.json();
-    const db = locals.runtime?.env?.DB;
+    const runtime = (locals as any).runtime;
+    const db = runtime?.env?.DB || (locals as any).DB || (globalThis as any).DB;
 
     if (db) {
       if (id) {
@@ -120,7 +122,8 @@ export const DELETE: APIRoute = async ({ request, locals }) => {
 export const PATCH: APIRoute = async ({ request, locals }) => {
   try {
     const { id, nhentaiId, title, source_url, tags, artist, favorite_status } = await request.json();
-    const db = locals.runtime?.env?.DB;
+    const runtime = (locals as any).runtime;
+    const db = runtime?.env?.DB || (locals as any).DB || (globalThis as any).DB;
 
     if (db) {
       let query = 'UPDATE manga SET ';
