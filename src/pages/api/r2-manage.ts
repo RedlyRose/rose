@@ -1,6 +1,13 @@
 import type { APIRoute } from 'astro';
 
-const getBucket = (locals: any) => locals.runtime?.env?.BUCKET;
+const getBucket = (locals: any) => {
+  // Try preferred location
+  if (locals.runtime?.env?.BUCKET) return locals.runtime.env.BUCKET;
+  // Try fallback (sometimes bindings are directly on runtime or env)
+  if (locals.runtime?.BUCKET) return locals.runtime.BUCKET;
+  if (locals.env?.BUCKET) return locals.env.BUCKET;
+  return null;
+};
 
 export const GET: APIRoute = async ({ request, locals }) => {
   const url = new URL(request.url);
@@ -10,7 +17,13 @@ export const GET: APIRoute = async ({ request, locals }) => {
   const bucket = getBucket(locals);
 
   if (!bucket) {
-    return new Response('Bucket not found', { status: 500 });
+    return new Response(JSON.stringify({ 
+      error: 'Bucket binding (BUCKET) not found. Please check Cloudflare Pages settings.',
+      details: 'Environment bindings may not be configured in the Cloudflare dashboard.'
+    }), { 
+      status: 500,
+      headers: { 'content-type': 'application/json' }
+    });
   }
 
   try {
@@ -25,7 +38,10 @@ export const GET: APIRoute = async ({ request, locals }) => {
       folders: (list.commonPrefixes || []).map((p: string) => p)
     }), { headers: { 'content-type': 'application/json' } });
   } catch (err: any) {
-    return new Response(err.message, { status: 500 });
+    return new Response(JSON.stringify({ error: err.message }), { 
+      status: 500,
+      headers: { 'content-type': 'application/json' }
+    });
   }
 };
 
@@ -35,10 +51,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const file = formData.get('file') as File;
     const path = formData.get('path') as string || '';
 
-    if (!file) return new Response('No file provided', { status: 400 });
+    if (!file) return new Response(JSON.stringify({ error: 'No file provided' }), { status: 400 });
 
     const bucket = getBucket(locals);
-    if (!bucket) return new Response('Bucket not found', { status: 500 });
+    if (!bucket) return new Response(JSON.stringify({ error: 'Bucket not found' }), { status: 500 });
 
     const fileName = path ? `${path}/${file.name}` : file.name;
     const buffer = await file.arrayBuffer();
@@ -49,21 +65,21 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     return new Response(JSON.stringify({ success: true, key: fileName }), { status: 200 });
   } catch (err: any) {
-    return new Response(err.message, { status: 500 });
+    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 };
 
 export const DELETE: APIRoute = async ({ request, locals }) => {
   try {
     const { key } = await request.json();
-    if (!key) return new Response('No key provided', { status: 400 });
+    if (!key) return new Response(JSON.stringify({ error: 'No key provided' }), { status: 400 });
 
     const bucket = getBucket(locals);
-    if (!bucket) return new Response('Bucket not found', { status: 500 });
+    if (!bucket) return new Response(JSON.stringify({ error: 'Bucket not found' }), { status: 500 });
 
     await bucket.delete(key);
     return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (err: any) {
-    return new Response(err.message, { status: 500 });
+    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 };

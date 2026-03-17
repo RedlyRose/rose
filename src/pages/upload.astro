@@ -232,6 +232,10 @@ import Header from '../components/Header.astro';
 
     try {
       const res = await fetch(`/api/r2-manage?prefix=${path ? path + '/' : ''}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: `Server Error (HTTP ${res.status})` }));
+        throw new Error(errorData.error || `Request failed with status ${res.status}`);
+      }
       const data = await res.json();
 
       grid!.innerHTML = '';
@@ -277,7 +281,8 @@ import Header from '../components/Header.astro';
       });
 
     } catch (err) {
-      grid!.innerHTML = '<div class="loader" style="color:#ff4d4d">Error loading files.</div>';
+      console.error('Frontend Fetch Error:', err);
+      grid!.innerHTML = `<div class="loader" style="color:#ff4d4d">Error loading files: ${(err as any).message || 'Unknown error'}</div>`;
     }
   }
 
