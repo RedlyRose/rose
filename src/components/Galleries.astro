@@ -1,26 +1,21 @@
 ---
-// Access R2 to find real galleries
+import { ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
+
+// 1. Try Native R2
 let bucket: any = null;
-try {
-  // @ts-ignore
-  const workers = await import('cloudflare:workers');
-  if (workers.env) bucket = workers.env.BUCKET;
-} catch (e) {
-  const runtime = Astro.locals.runtime;
-  if (runtime) {
-    try { bucket = runtime.env?.BUCKET || runtime.BUCKET; } catch(err) {}
-  }
+const runtime = Astro.locals.runtime;
+if (runtime) {
+  try { bucket = runtime.env?.BUCKET || runtime.BUCKET; } catch(err) {}
 }
 
 let dynamicGalleries = [];
+
 if (bucket) {
   try {
-    // List prefixes (folders)
     const list = await bucket.list({ delimiter: '/' });
     dynamicGalleries = (list.commonPrefixes || [])
       .map((prefix: string) => {
         const name = prefix.replace('/', '');
-        // Ignore system folders or manga covers
         if (['api', 'manga-covers', 'covers', 'video'].includes(name.toLowerCase())) return null;
         return {
           name: name.charAt(0).toUpperCase() + name.slice(1),
@@ -30,11 +25,49 @@ if (bucket) {
       })
       .filter(Boolean);
   } catch (err) {
-    console.error('R2 Prefix List Error:', err);
+    console.error('Native R2 List Error:', err);
   }
 }
 
-// Merge with fallbacks or just use dynamic
+// 2. S3 Fallback (if native failed or yielded nothing relevant)
+if (dynamicGalleries.length === 0) {
+    const env = runtime?.env || (globalThis as any).process?.env || {};
+    const accessKeyId = env.R2_ACCESS_KEY_ID;
+    const secretAccessKey = env.R2_SECRET_ACCESS_KEY;
+    const endpoint = env.R2_ENDPOINT;
+    const bucketName = env.R2_BUCKET_NAME || 'media';
+
+    if (accessKeyId && secretAccessKey && endpoint) {
+        try {
+            const s3 = new S3Client({
+                region: "auto",
+                endpoint: endpoint,
+                credentials: { accessKeyId, secretAccessKey },
+            });
+
+            const command = new ListObjectsV2Command({
+                Bucket: bucketName,
+                Delimiter: '/'
+            });
+
+            const response = await s3.send(command);
+            dynamicGalleries = (response.CommonPrefixes || [])
+                .map((p: any) => {
+                    const name = p.Prefix.replace('/', '');
+                    if (['api', 'manga-covers', 'covers', 'video'].includes(name.toLowerCase())) return null;
+                    return {
+                        name: name.charAt(0).toUpperCase() + name.slice(1),
+                        count: 'R2 S3',
+                        color: name.toLowerCase() === 'maria' ? '#ff4d6d' : '#9d4edd'
+                    };
+                })
+                .filter(Boolean);
+        } catch (e) {
+            console.error('S3 Fallback List Error:', e);
+        }
+    }
+}
+
 const defaultGalleries = [
   { name: 'Selfies', count: 124, color: '#9d4edd' },
   { name: 'Vacation', count: 45, color: '#7b2cbf' },

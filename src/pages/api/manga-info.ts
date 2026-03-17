@@ -1,4 +1,27 @@
 import type { APIRoute } from 'astro';
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+
+const getS3Config = (locals: any) => {
+  const env = locals.runtime?.env || (globalThis as any).process?.env || {};
+  return {
+    accessKeyId: env.R2_ACCESS_KEY_ID,
+    secretAccessKey: env.R2_SECRET_ACCESS_KEY,
+    endpoint: env.R2_ENDPOINT,
+    bucket: env.R2_BUCKET_NAME || 'media'
+  };
+};
+
+const getS3Client = (config: any) => {
+  if (!config.accessKeyId || !config.secretAccessKey || !config.endpoint) return null;
+  return new S3Client({
+    region: "auto",
+    endpoint: config.endpoint,
+    credentials: {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    },
+  });
+};
 
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
@@ -10,10 +33,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const tags = formData.get('tags') as string || '';
     const artist = formData.get('artist') as string || '';
 
-    // Robust Binding Lookup
     const runtime = (locals as any).runtime;
     const db = runtime?.env?.DB || (locals as any).DB || (globalThis as any).DB;
-    const bucket = runtime?.env?.BUCKET || (locals as any).BUCKET || (globalThis as any).BUCKET;
+    const nativeBucket = runtime?.env?.BUCKET || (locals as any).BUCKET;
+    const s3Config = getS3Config(locals);
+    const s3 = getS3Client(s3Config);
 
     const nhentaiMatch = url.match(/\/g\/(\d+)/);
     const nhentaiId = nhentaiMatch ? nhentaiMatch[1] : null;
@@ -37,15 +61,31 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     let r2LocalPath = finalCoverUrl;
 
-    if (file && bucket) {
+    // Helper to upload to R2 (tries native then S3)
+    const uploadToR2 = async (key: string, body: Uint8Array, contentType: string) => {
+      if (nativeBucket) {
+        await nativeBucket.put(key, body, { httpMetadata: { contentType } });
+        return true;
+      } else if (s3) {
+        const command = new PutObjectCommand({
+          Bucket: s3Config.bucket,
+          Key: key,
+          Body: body,
+          ContentType: contentType
+        });
+        await s3.send(command);
+        return true;
+      }
+      return false;
+    };
+
+    if (file) {
       const fileName = `covers/manga/upload-${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
       const buffer = await file.arrayBuffer();
-      await bucket.put(fileName, buffer, {
-        httpMetadata: { contentType: file.type || 'image/webp' }
-      });
-      r2LocalPath = `/api/content/${fileName}`;
+      const success = await uploadToR2(fileName, new Uint8Array(buffer), file.type || 'image/webp');
+      if (success) r2LocalPath = `/api/content/${fileName}`;
     } 
-    else if (finalCoverUrl && bucket && finalCoverUrl.startsWith('http')) {
+    else if (finalCoverUrl && finalCoverUrl.startsWith('http')) {
       try {
         const imgRes = await fetch(finalCoverUrl);
         if (imgRes.ok) {
@@ -55,8 +95,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
             : `covers/manga/fetch-${Date.now()}.webp`;
           
           const buffer = await imgRes.arrayBuffer();
-          await bucket.put(fileName, buffer, { httpMetadata: { contentType } });
-          r2LocalPath = `/api/content/${fileName}`;
+          const success = await uploadToR2(fileName, new Uint8Array(buffer), contentType);
+          if (success) r2LocalPath = `/api/content/${fileName}`;
         }
       } catch (err) {
         console.error('R2 Proxy Fetch Error:', err);
