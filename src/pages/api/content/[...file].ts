@@ -1,37 +1,47 @@
 import type { APIRoute } from 'astro';
 
 export const GET: APIRoute = async ({ params, locals }) => {
-  const fileName = params.file;
-  if (!fileName) return new Response('Not Found', { status: 404 });
-
-  // Extremely robust binding lookup
-  let bucket = locals.runtime?.env?.BUCKET;
-  if (!bucket) bucket = (locals as any).BUCKET;
-  if (!bucket) bucket = (globalThis as any).BUCKET;
-
-  if (!bucket) {
-    return new Response('R2 Bucket binding (BUCKET) not found', { status: 500 });
-  }
-
   try {
+    const fileName = params.file;
+    if (!fileName) return new Response('Source filename missing', { status: 400 });
+
+    // @ts-ignore
+    const runtime = locals.runtime;
+    let bucket = runtime?.env?.BUCKET || (locals as any).BUCKET;
+
+    if (!bucket) {
+      return new Response(`Binding Error: BUCKET not found in locals. (Keys: ${Object.keys(locals).join(',')})`, { status: 500 });
+    }
+
     const object = await bucket.get(fileName);
 
     if (!object) {
-      return new Response('File Not Found in R2', { status: 404 });
+      return new Response('File not found in R2 Storage', { status: 404 });
     }
 
     const headers = new Headers();
-    // Use try-catch for metadata to avoid crashes on weird files
     try {
       object.writeHttpMetadata(headers);
-    } catch (e) {}
+    } catch (e) {
+      // Fallback content type if helper fails
+      const ext = fileName.split('.').pop()?.toLowerCase();
+      const mimeTypes: Record<string, string> = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp',
+        'gif': 'image/gif',
+        'mp4': 'video/mp4',
+        'webm': 'video/webm'
+      };
+      headers.set('Content-Type', mimeTypes[ext || ''] || 'application/octet-stream');
+    }
     
     headers.set('etag', object.httpEtag);
-    headers.set('Cache-Control', 'public, max-age=31536000'); 
+    headers.set('Cache-Control', 'public, max-age=31536000, immutable'); 
 
-    // Handle range requests if needed, but for now simple response
     return new Response(object.body, { headers });
-  } catch (error: any) {
-    return new Response(`R2 Fetch Error: ${error.message}`, { status: 500 });
+  } catch (err: any) {
+    return new Response(`[VaultHUB R2 Error]: ${err.message}`, { status: 500 });
   }
 };

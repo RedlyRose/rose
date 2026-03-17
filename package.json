@@ -7,11 +7,12 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "prebuild": "rm -rf .wrangler dist",
+    "build": "npm run prebuild && astro build",
     "preview": "astro preview",
     "astro": "astro",
     "generate-types": "wrangler types",
-    "postbuild": "cp -rn dist/client/* dist/ && rm -rf dist/client && mv dist/server/entry.mjs dist/_worker.js && cp -r dist/server/chunks dist/ && rm -rf dist/server"
+    "postbuild": "cp -rn dist/client/* dist/ 2>/dev/null || true && rm -rf dist/client && mv dist/server/entry.mjs dist/_worker.js 2>/dev/null || true && cp -r dist/server/chunks dist/ 2>/dev/null || true && rm -rf dist/server && rm -f dist/_worker.js.map"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^13.1.2",
